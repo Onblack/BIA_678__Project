@@ -1,4 +1,4 @@
-Project Topic: H-1B issuing prediction on Spark and Cluster
+Project Topic: H-1B issuance prediction on Spark and Cluster
 
 Main Goal: discovered if the performance of accuracy and speed would be better when running spark in cluster rather than local.
 
