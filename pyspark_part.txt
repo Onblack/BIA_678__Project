@@ -1,0 +1,91 @@
+import pyspark
+from pyspark.sql import SparkSession
+from pyspark.ml.classification import GBTClassifier
+from pyspark.ml.classification import LogisticRegression
+import time
+
+from pyspark.ml.classification import RandomForestClassifier
+
+# start a spark session
+st_lr = time.process_time()
+spark = SparkSession.builder.master("local").appName("CTR Models").config(
+    "spark.executor.memory", "8g").config(
+    "spark.driver.memory", "15g").getOrCreate()
+
+# load data with inferred schema 
+df = spark.read.load("/FileStore/tables/h1b_5.csv", 
+                     format="csv", inferSchema="true", header="true")
+
+#df = df.limit(28000)  #########select size of sample########
+df.sample(False, 0.1, seed=0).limit(1000000)
+# The inferred schema can be seen using .printSchema().
+df.printSchema()
+
+df1 = df.drop('CASE_STATUS')
+
+features = []
+for i in df1.dtypes:
+    features.append(i[0])
+    
+from pyspark.ml.feature import StringIndexer, VectorAssembler, ChiSqSelector
+assembler = VectorAssembler(inputCols= features, outputCol="features")
+
+from pyspark.ml import Pipeline
+
+pipeline = Pipeline(stages=[assembler]) #indexers+
+
+data = pipeline.fit(df).transform(df)
+
+# select feature col 
+input_data = data.select(["features","CASE_STATUS"])
+
+# split dataset into train set and test set 
+train_data, test_data = input_data.randomSplit([.8,.2])
+
+
+
+# define the classifier 
+
+#start = time.process_time()
+#gbt = GBTClassifier(labelCol="CASE_STATUS", featuresCol="features")
+
+# train the classifier with train data 
+#GBT = gbt.fit(train_data)
+
+# predict test data 
+#predictions = GBT.transform(test_data)
+
+#end = time.process_time()
+#dur = end-start
+
+#print(dur)
+
+
+
+#lr = LogisticRegression(featuresCol = 'features', labelCol = 'CASE_STATUS', maxIter=10)
+#lrModel = lr.fit(train_data)
+#predictions = lrModel.transform(test_data)
+
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
+
+# choose the auc score as evaluator 
+
+
+
+
+
+
+
+rf = RandomForestClassifier(labelCol="CASE_STATUS", featuresCol="features", numTrees=10)
+
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
+
+rfmodel = rf.fit(train_data)
+predictions = rfmodel.transform(test_data)
+evaluator = BinaryClassificationEvaluator(labelCol="CASE_STATUS", metricName='areaUnderROC')
+accuracy = evaluator.evaluate(predictions)
+
+end_lr = time.process_time()
+dua_lr = end_lr - st_lr
+print(dua_lr)
+print(accuracy)
